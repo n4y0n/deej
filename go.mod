@@ -10,13 +10,15 @@ require (
 	github.com/go-ole/go-ole v1.2.4
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
-	github.com/jfreymuth/pulse v0.0.0-20200608153616-84b2d752b9d4
+	github.com/jfreymuth/pulse v0.1.1-0.20221101213618-75628dabd933
 	github.com/lxn/walk v0.0.0-20191128110447-55ccb3a9f5c1 // indirect
 	github.com/lxn/win v0.0.0-20191128105842-2da648fda5b4
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/moutend/go-wca v0.1.2-0.20190422112502-0fa027b3d89a
 	github.com/spf13/viper v1.7.1
 	github.com/thoas/go-funk v0.7.0
+	github.com/zhouhui8915/engine.io-go v0.0.0-20150910083302-02ea08f0971f // indirect
+	github.com/zhouhui8915/go-socket.io-client v0.0.0-20200925034401-83ee73793ba4
 	go.uber.org/zap v1.15.0
 	golang.org/x/sys v0.0.0-20200501145240-bc7a7d42d5c3 // indirect
 )
