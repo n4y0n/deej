@@ -23,6 +23,11 @@ type CanonicalConfig struct {
 		BaudRate int
 	}
 
+    NConnectionInfo struct {
+        Ip string
+        Port uint16
+    }
+
 	InvertSliders bool
 
 	NoiseReductionLevel string
@@ -54,8 +59,16 @@ const (
 	configKeyBaudRate            = "baud_rate"
 	configKeyNoiseReductionLevel = "noise_reduction"
 
+    configKeyIp = "ip"
+
+    configKeyPort = "port"
+
 	defaultCOMPort  = "COM4"
 	defaultBaudRate = 9600
+
+    defaultIp = "127.0.0.1"
+
+    defaultPort = 8080
 )
 
 // has to be defined as a non-constant because we're using path.Join
@@ -89,6 +102,8 @@ func NewConfig(logger *zap.SugaredLogger, notifier Notifier) (*CanonicalConfig, 
 	userConfig.SetDefault(configKeyInvertSliders, false)
 	userConfig.SetDefault(configKeyCOMPort, defaultCOMPort)
 	userConfig.SetDefault(configKeyBaudRate, defaultBaudRate)
+    userConfig.SetDefault(configKeyIp, defaultIp)
+    userConfig.SetDefault(configKeyPort, defaultPort)
 
 	internalConfig := viper.New()
 	internalConfig.SetConfigName(internalConfigName)
@@ -238,6 +253,9 @@ func (cc *CanonicalConfig) populateFromVipers() error {
 
 	cc.InvertSliders = cc.userConfig.GetBool(configKeyInvertSliders)
 	cc.NoiseReductionLevel = cc.userConfig.GetString(configKeyNoiseReductionLevel)
+
+    cc.NConnectionInfo.Ip = cc.userConfig.GetString(configKeyIp)
+    cc.NConnectionInfo.Port = uint16(cc.userConfig.GetInt(configKeyPort))
 
 	cc.logger.Debug("Populated config fields from vipers")
 
