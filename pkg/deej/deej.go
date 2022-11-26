@@ -23,7 +23,8 @@ type Deej struct {
 	logger   *zap.SugaredLogger
 	notifier Notifier
 	config   *CanonicalConfig
-	serial   *SerialIO
+	//serial   *SerialIO
+    io  *NetworkIO
 	sessions *sessionMap
 
 	stopChannel chan bool
@@ -55,13 +56,21 @@ func NewDeej(logger *zap.SugaredLogger, verbose bool) (*Deej, error) {
 		verbose:     verbose,
 	}
 
-	serial, err := NewSerialIO(d, logger)
-	if err != nil {
-		logger.Errorw("Failed to create SerialIO", "error", err)
-		return nil, fmt.Errorf("create new SerialIO: %w", err)
-	}
+//	serial, err := NewSerialIO(d, logger)
+//	if err != nil {
+//		logger.Errorw("Failed to create SerialIO", "error", err)
+//		return nil, fmt.Errorf("create new SerialIO: %w", err)
+//	}
 
-	d.serial = serial
+//	d.serial = serial
+
+    network, err := NewNetworkIO(d, logger)
+    if err != nil {
+        logger.Errorw("Failed to create NetworkIO", err)
+        return nil, fmt.Errorf("create new NetworkIO: %w", err)
+    }
+
+    d.io = network
 
 	sessionFinder, err := newSessionFinder(logger)
 	if err != nil {
@@ -77,7 +86,7 @@ func NewDeej(logger *zap.SugaredLogger, verbose bool) (*Deej, error) {
 
 	d.sessions = sessions
 
-	logger.Debug("Created deej instance")
+    logger.Debug("Created deej instance")
 
 	return d, nil
 }
@@ -143,16 +152,16 @@ func (d *Deej) run() {
 
 	// connect to the arduino for the first time
 	go func() {
-		if err := d.serial.Start(); err != nil {
-			d.logger.Warnw("Failed to start first-time serial connection", "error", err)
+		if err := d.io.Start(); err != nil {
+			d.logger.Warnw("Failed to start first-time IO connection", "error", err)
 
 			// If the port is busy, that's because something else is connected - notify and quit
 			if errors.Is(err, os.ErrPermission) {
-				d.logger.Warnw("Serial port seems busy, notifying user and closing",
+				d.logger.Warnw("IO port seems busy, notifying user and closing",
 					"comPort", d.config.ConnectionInfo.COMPort)
 
 				d.notifier.Notify(fmt.Sprintf("Can't connect to %s!", d.config.ConnectionInfo.COMPort),
-					"This serial port is busy, make sure to close any serial monitor or other deej instance.")
+					"This device is busy, make sure to close any monitor or other deej instance.")
 
 				d.signalStop()
 
@@ -191,7 +200,7 @@ func (d *Deej) stop() error {
 	d.logger.Info("Stopping")
 
 	d.config.StopWatchingConfigFile()
-	d.serial.Stop()
+	d.io.Stop()
 
 	// release the session map
 	if err := d.sessions.release(); err != nil {
