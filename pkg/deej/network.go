@@ -34,12 +34,12 @@ type NetworkIO struct {
 
 type NConnectionOptions struct {
 	Ip   string
-	Port uint16
+	Port int
 	Addr *net.TCPAddr
 }
 
 // NewNetworkIO creates a NetworkIO instance that uses the provided deej
-// instance's connection info to establish communications with the esp8266 via wireless websockets
+// instance's connection info to establish communications with the esp8266 via tcp/ip socket
 func NewNetworkIO(deej *Deej, logger *zap.SugaredLogger) (*NetworkIO, error) {
 	logger = logger.Named("network")
 
@@ -60,13 +60,11 @@ func NewNetworkIO(deej *Deej, logger *zap.SugaredLogger) (*NetworkIO, error) {
 	return nio, nil
 }
 
-// Start attempts to connect to our arduino chip
 func (sio *NetworkIO) Start() error {
 
-	// don't allow multiple concurrent connections
 	if sio.connected {
 		sio.logger.Warn("Already connected, can't start another without closing first")
-		return errors.New("serial: connection already active")
+		return errors.New("network: connection already active")
 	}
 
 	sio.connOptions = NConnectionOptions{
@@ -75,7 +73,7 @@ func (sio *NetworkIO) Start() error {
 	}
 
 	sio.logger.Debugw("Attempting network connection")
-	serverAddr := sio.deej.config.NConnectionInfo.Ip + ":" + strconv.Itoa(int(sio.connOptions.Port))
+	serverAddr := sio.deej.config.NConnectionInfo.Ip + ":" + strconv.Itoa(sio.connOptions.Port)
 
 	var err error
 	sio.connOptions.Addr, err = net.ResolveTCPAddr("tcp", serverAddr)
@@ -114,10 +112,9 @@ func (sio *NetworkIO) Start() error {
 	return nil
 }
 
-// Stop signals us to shut down our serial connection, if one is active
 func (sio *NetworkIO) Stop() {
 	if sio.connected {
-		sio.logger.Debug("Shutting down serial connection")
+		sio.logger.Debug("Shutting down tcp connection")
 		sio.stopChannel <- true
 	} else {
 		sio.logger.Debug("Not currently connected, nothing to stop")
@@ -133,7 +130,7 @@ func (sio *NetworkIO) readLine(logger *zap.SugaredLogger, reader *bufio.Reader) 
 			if err != nil {
 
 				if sio.deej.Verbose() {
-					logger.Warnw("Failed to read line from serial", "error", err, "line", line)
+					logger.Warnw("Failed to read line from socket", "error", err, "line", line)
 				}
 
 				// just ignore the line, the read loop will stop after this
@@ -247,10 +244,8 @@ func (sio *NetworkIO) handleLine(logger *zap.SugaredLogger, line string) {
 		// convert string values to integers ("1023" -> 1023)
 		number, _ := strconv.Atoi(stringValue)
 
-		// turns out the first line could come out dirty sometimes (i.e. "4558|925|41|643|220")
-		// so let's check the first number for correctness just in case
 		if sliderIdx == 0 && number > 1023 {
-			sio.logger.Debugw("Got malformed line from serial, ignoring", "line", line)
+			sio.logger.Debugw("Got malformed line from socket, ignoring", "line", line)
 			return
 		}
 

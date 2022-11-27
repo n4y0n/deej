@@ -23,8 +23,7 @@ type Deej struct {
 	logger   *zap.SugaredLogger
 	notifier Notifier
 	config   *CanonicalConfig
-	//serial   *SerialIO
-    io  *NetworkIO
+	io       IO
 	sessions *sessionMap
 
 	stopChannel chan bool
@@ -56,21 +55,13 @@ func NewDeej(logger *zap.SugaredLogger, verbose bool) (*Deej, error) {
 		verbose:     verbose,
 	}
 
-//	serial, err := NewSerialIO(d, logger)
-//	if err != nil {
-//		logger.Errorw("Failed to create SerialIO", "error", err)
-//		return nil, fmt.Errorf("create new SerialIO: %w", err)
-//	}
+	io, err := NewIO(d, logger)
+	if err != nil {
+		logger.Errorw("Failed to create IO", "error", err)
+		return nil, fmt.Errorf("create new IO: %w", err)
+	}
 
-//	d.serial = serial
-
-    network, err := NewNetworkIO(d, logger)
-    if err != nil {
-        logger.Errorw("Failed to create NetworkIO", err)
-        return nil, fmt.Errorf("create new NetworkIO: %w", err)
-    }
-
-    d.io = network
+	d.io = io
 
 	sessionFinder, err := newSessionFinder(logger)
 	if err != nil {
@@ -86,7 +77,7 @@ func NewDeej(logger *zap.SugaredLogger, verbose bool) (*Deej, error) {
 
 	d.sessions = sessions
 
-    logger.Debug("Created deej instance")
+	logger.Debug("Created deej instance")
 
 	return d, nil
 }
