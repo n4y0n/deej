@@ -18,7 +18,6 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/thoas/go-funk v0.7.0
 	github.com/zhouhui8915/engine.io-go v0.0.0-20150910083302-02ea08f0971f // indirect
-	github.com/zhouhui8915/go-socket.io-client v0.0.0-20200925034401-83ee73793ba4
 	go.uber.org/zap v1.15.0
 	golang.org/x/sys v0.0.0-20200501145240-bc7a7d42d5c3 // indirect
 )

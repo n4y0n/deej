@@ -1,13 +1,14 @@
 package deej
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/zhouhui8915/go-socket.io-client"
 	"go.uber.org/zap"
 
 	"github.com/omriharel/deej/pkg/deej/util"
@@ -23,7 +24,7 @@ type NetworkIO struct {
 	stopChannel chan bool
 	connected   bool
 	connOptions NConnectionOptions
-	conn        *socketio_client.Client
+	conn        *net.TCPConn
 
 	lastKnownNumSliders        int
 	currentSliderPercentValues []float32
@@ -32,9 +33,9 @@ type NetworkIO struct {
 }
 
 type NConnectionOptions struct {
-	Ip      string
-	Port    uint16
-	Options socketio_client.Options
+	Ip   string
+	Port uint16
+	Addr *net.TCPAddr
 }
 
 // NewNetworkIO creates a NetworkIO instance that uses the provided deej
@@ -73,38 +74,42 @@ func (sio *NetworkIO) Start() error {
 		Port: sio.deej.config.NConnectionInfo.Port,
 	}
 
-	sio.connOptions.Options = socketio_client.Options{
-		Transport: "websocket",
-		Query:     make(map[string]string),
-	}
-
 	sio.logger.Debugw("Attempting network connection")
-	uri := "http://" + sio.deej.config.NConnectionInfo.Ip + ":" + strconv.Itoa(int(sio.connOptions.Port))
+	serverAddr := sio.deej.config.NConnectionInfo.Ip + ":" + strconv.Itoa(int(sio.connOptions.Port))
 
 	var err error
-	sio.conn, err = socketio_client.NewClient(uri, &sio.connOptions.Options)
+	sio.connOptions.Addr, err = net.ResolveTCPAddr("tcp", serverAddr)
 	if err != nil {
+		sio.logger.Warnw("Failed to resolve server address", "error", err)
+		return fmt.Errorf("open network connection: %w", err)
+	}
 
+	sio.conn, err = net.DialTCP("tcp", nil, sio.connOptions.Addr)
+	if err != nil {
 		// might need a user notification here, TBD
 		sio.logger.Warnw("Failed to open network connection", "error", err)
 		return fmt.Errorf("open network connection: %w", err)
 	}
 
-	namedLogger := sio.logger.Named(strings.ToLower(sio.connOptions.Options.Transport))
+	namedLogger := sio.logger.Named(strings.ToLower("TCP-Connection"))
 
 	namedLogger.Infow("Connected", "conn", sio.conn)
 	sio.connected = true
 
 	// read lines or await a stop
-	_ = sio.conn.On("message", func(msg string) {
-		sio.handleLine(namedLogger, msg)
-	})
-	_ = sio.conn.On("disconnection", func() {
-		sio.close(namedLogger)
-	})
-	_ = sio.conn.On("error", func() {
-		namedLogger.Warnw("Error on the socket")
-	})
+	go func() {
+		connReader := bufio.NewReader(sio.conn)
+		lineChannel := sio.readLine(namedLogger, connReader)
+
+		for {
+			select {
+			case <-sio.stopChannel:
+				sio.close(namedLogger)
+			case line := <-lineChannel:
+				sio.handleLine(namedLogger, line)
+			}
+		}
+	}()
 
 	return nil
 }
@@ -117,6 +122,34 @@ func (sio *NetworkIO) Stop() {
 	} else {
 		sio.logger.Debug("Not currently connected, nothing to stop")
 	}
+}
+
+func (sio *NetworkIO) readLine(logger *zap.SugaredLogger, reader *bufio.Reader) chan string {
+	ch := make(chan string)
+
+	go func() {
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+
+				if sio.deej.Verbose() {
+					logger.Warnw("Failed to read line from serial", "error", err, "line", line)
+				}
+
+				// just ignore the line, the read loop will stop after this
+				return
+			}
+
+			if sio.deej.Verbose() {
+				logger.Debugw("Read new line", "line", line)
+			}
+
+			// deliver the line to the channel
+			ch <- line
+		}
+	}()
+
+	return ch
 }
 
 // SubscribeToSliderMoveEvents returns an unbuffered channel that receives
@@ -169,12 +202,8 @@ func (sio *NetworkIO) setupOnConfigReload() {
 }
 
 func (sio *NetworkIO) close(logger *zap.SugaredLogger) {
-	if err := sio.conn.Emit("disconnection"); err != nil {
-		if err.Error() == "EOF" {
-			logger.Debug("Socket connection closed")
-		} else {
-			logger.Warnw("Failed to close network connection", "error", err)
-		}
+	if err := sio.conn.Close(); err != nil {
+		logger.Warnw("Failed to close network connection", "error", err)
 	} else {
 		logger.Debug("Socket connection closed")
 	}
