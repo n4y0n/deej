@@ -55,12 +55,19 @@ func NewDeej(logger *zap.SugaredLogger, verbose bool) (*Deej, error) {
 		verbose:     verbose,
 	}
 
+	// load the config for the first time
+	// don't like this, but it's the only way to get the config to the IO (?)
+	// TODO: find a better way to do this
+	if err := d.config.Load(); err != nil {
+		d.logger.Errorw("Failed to load config", "error", err)
+		return nil, fmt.Errorf("load config: %w", err)
+	}
+
 	io, err := NewIO(d, logger)
 	if err != nil {
 		logger.Errorw("Failed to create IO", "error", err)
 		return nil, fmt.Errorf("create new IO: %w", err)
 	}
-
 	d.io = io
 
 	sessionFinder, err := newSessionFinder(logger)
@@ -85,12 +92,6 @@ func NewDeej(logger *zap.SugaredLogger, verbose bool) (*Deej, error) {
 // Initialize sets up components and starts to run in the background
 func (d *Deej) Initialize() error {
 	d.logger.Debug("Initializing")
-
-	// load the config for the first time
-	if err := d.config.Load(); err != nil {
-		d.logger.Errorw("Failed to load config during initialization", "error", err)
-		return fmt.Errorf("load config during init: %w", err)
-	}
 
 	// initialize the session map
 	if err := d.sessions.initialize(); err != nil {
