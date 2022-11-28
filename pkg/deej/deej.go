@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -166,6 +167,13 @@ func (d *Deej) run() {
 					"This serial port doesn't exist, check your configuration and make sure it's set correctly.")
 
 				d.signalStop()
+			} else {
+				if strings.Contains(err.Error(), "open network connection") {
+					d.logger.Warnw("Failed to connect to IO, notifying user and closing", "error", err)
+					d.notifier.Notify(fmt.Sprintf("Can't connect to %s:%d!", d.config.NConnectionInfo.Ip, d.config.NConnectionInfo.Port),
+						"Check your configuration and make sure the IP and Port are correct and the server is running on the board.")
+					d.signalStop()
+				}
 			}
 		}
 	}()

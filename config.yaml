@@ -18,7 +18,7 @@ slider_mapping:
 invert_sliders: false
 
 # values: serial tcp
-io_interface: serial
+io_interface: tcp
 # settings for connecting to the arduino board
 com_port: COM5
 baud_rate: 115200
