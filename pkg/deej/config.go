@@ -166,6 +166,7 @@ func (cc *CanonicalConfig) Load() error {
 	cc.logger.Infow("Config values",
 		"sliderMapping", cc.SliderMapping,
 		"connectionInfo", cc.ConnectionInfo,
+		"NetworkConnectionInfo", cc.NConnectionInfo,
 		"invertSliders", cc.InvertSliders)
 
 	return nil
