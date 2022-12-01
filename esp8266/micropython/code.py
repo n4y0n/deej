@@ -3,6 +3,19 @@ import gc
 import random
 import time
 
+WIFI_SSID = 'ssid'
+WIFI_PASS = 'key'
+
+def do_connect():
+    import network
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
+        print(f"connecting to network {WIFI_SSID}...")
+        wlan.connect(WIFI_SSID, WIFI_PASS)
+        while not wlan.isconnected(): pass
+    print('network config:', wlan.ifconfig())
+
 p1 = 0
 p2 = 0
 p3 = 0
@@ -34,6 +47,8 @@ def on_update(conn):
     read_values()
     if dirty:
         conn.send(printp())
+
+do_connect()
 
 while True:
     if gc.mem_free() < 102000:
