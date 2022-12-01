@@ -1,3 +1,4 @@
+from machine import ADC, Pin
 import socket
 import gc
 import random
@@ -16,28 +17,33 @@ def do_connect():
         while not wlan.isconnected(): pass
     print('network config:', wlan.ifconfig())
 
-p1 = 0
-p2 = 0
-p3 = 0
+adc = ADC(0)
 dirty = False
 
+POT_PINS = [Pin(21, Pin.OUT), Pin(3, Pin.OUT), Pin(2, Pin.OUT)]
+prev_values = [0 for x in range(len(POT_PINS))]
+
 def printp():
-    return "{}|{}|{}\r\n".format(p1, p2, p3).encode()
+    return "{}\r\n".format("|".join([str(x) for x in prev_values])).encode()
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind(('', 8089))
 s.listen(5)
 
+def analog_read(pot):
+    POT_PINS[pot].value(1)
+    time.sleep_us(10)
+    val = adc.read()
+    POT_PINS[pot].value(0)
+    return val
+
 def read_values():
-    global p1, p2, p3, dirty
+    global dirty
     dirty = False
-    new_p1 = rand(0, 1023)
-    new_p2 = rand(0, 1023)
-    new_p3 = rand(0, 1023)
-    if new_p1 != p1 or new_p2 != p2 or new_p3 != p3:
-        p1 = new_p1
-        p2 = new_p2
-        p3 = new_p3
+    new_vals = [analog_read(x) for x in range(len(POT_PINS))]
+    if any([new_vals[x] != prev_values[x] for x in range(len(POT_PINS))]):
+        for x in range(len(POT_PINS)):
+            prev_values[x] = new_vals[x]
         dirty = True
 
 def rand(a, b):
